@@ -1,0 +1,261 @@
+{
+  "throughput": [
+    {
+      "sync_mode": "FULL",
+      "commit_batch": 1,
+      "scan_ms": 500,
+      "tags_configured": 25,
+      "seconds": 15.433457800012548,
+      "captured": 259,
+      "tags_per_sec": 16.781722110244758,
+      "rss_start_mb": 67.723264,
+      "rss_peak_mb": 68.739072,
+      "rss_delta_mb": 1.0158079999999927,
+      "historian_rows": 259,
+      "max_buffer_depth": 9,
+      "by_quality": {
+        "GOOD": 247,
+        "STALE": 12
+      }
+    },
+    {
+      "sync_mode": "FULL",
+      "commit_batch": 1,
+      "scan_ms": 200,
+      "tags_configured": 57,
+      "seconds": 15.398938100028317,
+      "captured": 545,
+      "tags_per_sec": 35.39205083232316,
+      "rss_start_mb": 68.767744,
+      "rss_peak_mb": 68.93568,
+      "rss_delta_mb": 0.16793600000001163,
+      "historian_rows": 545,
+      "max_buffer_depth": 9,
+      "by_quality": {
+        "GOOD": 487,
+        "STALE": 58
+      }
+    },
+    {
+      "sync_mode": "FULL",
+      "commit_batch": 1,
+      "scan_ms": 100,
+      "tags_configured": 105,
+      "seconds": 15.424232899968047,
+      "captured": 833,
+      "tags_per_sec": 54.00592725760291,
+      "rss_start_mb": 68.93568,
+      "rss_peak_mb": 69.001216,
+      "rss_delta_mb": 0.06553599999999449,
+      "historian_rows": 833,
+      "max_buffer_depth": 18,
+      "by_quality": {
+        "GOOD": 650,
+        "STALE": 183
+      }
+    }
+  ],
+  "durability_tradeoff": [
+    {
+      "sync_mode": "FULL",
+      "commit_batch": 1,
+      "scan_ms": 100,
+      "tags_configured": 57,
+      "seconds": 10.41870740003651,
+      "captured": 610,
+      "tags_per_sec": 58.5485297339152,
+      "rss_start_mb": 69.005312,
+      "rss_peak_mb": 69.033984,
+      "rss_delta_mb": 0.028672000000000253,
+      "historian_rows": 610,
+      "max_buffer_depth": 18,
+      "by_quality": {
+        "GOOD": 506,
+        "STALE": 104
+      }
+    },
+    {
+      "sync_mode": "NORMAL",
+      "commit_batch": 1,
+      "scan_ms": 100,
+      "tags_configured": 57,
+      "seconds": 10.347157799988054,
+      "captured": 582,
+      "tags_per_sec": 56.24733006397872,
+      "rss_start_mb": 52.273152,
+      "rss_peak_mb": 52.359168,
+      "rss_delta_mb": 0.08601599999999365,
+      "historian_rows": 582,
+      "max_buffer_depth": 18,
+      "by_quality": {
+        "GOOD": 486,
+        "STALE": 96
+      }
+    },
+    {
+      "sync_mode": "NORMAL",
+      "commit_batch": 25,
+      "scan_ms": 100,
+      "tags_configured": 57,
+      "seconds": 10.41744029999245,
+      "captured": 360,
+      "tags_per_sec": 34.55743346091083,
+      "rss_start_mb": 26.812416,
+      "rss_peak_mb": 26.894336,
+      "rss_delta_mb": 0.08192000000000021,
+      "historian_rows": 360,
+      "max_buffer_depth": 18,
+      "by_quality": {
+        "GOOD": 320,
+        "STALE": 40
+      }
+    },
+    {
+      "sync_mode": "OFF",
+      "commit_batch": 25,
+      "scan_ms": 100,
+      "tags_configured": 57,
+      "seconds": 10.4740557000041,
+      "captured": 520,
+      "tags_per_sec": 49.64648030273473,
+      "rss_start_mb": 26.923008,
+      "rss_peak_mb": 26.988544,
+      "rss_delta_mb": 0.06553600000000159,
+      "historian_rows": 520,
+      "max_buffer_depth": 18,
+      "by_quality": {
+        "GOOD": 434,
+        "STALE": 86
+      }
+    }
+  ],
+  "config": {
+    "events": [
+      {
+        "case": "legitimate signed update",
+        "accepted": true,
+        "version": 2,
+        "changed": "max_plausible: 400.0 -> 450.0"
+      },
+      {
+        "case": "tampered scale factor, wrong key",
+        "accepted": false,
+        "reason": "bad signature",
+        "version": 2
+      },
+      {
+        "case": "replay of an older correctly-signed config",
+        "accepted": false,
+        "reason": "rollback / replay",
+        "version": 2
+      },
+      {
+        "case": "signed safety-relevant change (scale)",
+        "accepted": true,
+        "version": 3,
+        "changed": "scale: 1.0 -> 0.1; units: 'degC' -> 'degC x10'"
+      }
+    ],
+    "final_version": 3,
+    "audit_entries": 5,
+    "audit": [
+      {
+        "ts": 1787235753.1578498,
+        "action": "INITIAL",
+        "accepted": true,
+        "detail": "bootstrap config accepted",
+        "version": 1,
+        "config_hash": "b836d4af3656efd7"
+      },
+      {
+        "ts": 1787235753.2063093,
+        "action": "UPDATE",
+        "accepted": true,
+        "detail": "applied v2: max_plausible: 400.0 -> 450.0",
+        "version": 2,
+        "config_hash": "41b5cd6224f37ddb"
+      },
+      {
+        "ts": 1787235753.2070172,
+        "action": "UPDATE",
+        "accepted": false,
+        "detail": "signature verification FAILED",
+        "version": 2,
+        "config_hash": "41b5cd6224f37ddb"
+      },
+      {
+        "ts": 1787235753.207119,
+        "action": "UPDATE",
+        "accepted": false,
+        "detail": "rollback rejected: v1 <= current v2",
+        "version": 2,
+        "config_hash": "41b5cd6224f37ddb"
+      },
+      {
+        "ts": 1787235753.207231,
+        "action": "UPDATE",
+        "accepted": true,
+        "detail": "applied v3: scale: 1.0 -> 0.1; units: 'degC' -> 'degC x10'",
+        "version": 3,
+        "config_hash": "9e7710b291fcb4c9"
+      }
+    ],
+    "safety_relevant": [
+      {
+        "ts": 1787235753.2063093,
+        "action": "UPDATE",
+        "accepted": true,
+        "detail": "applied v2: max_plausible: 400.0 -> 450.0",
+        "version": 2,
+        "config_hash": "41b5cd6224f37ddb",
+        "classification": "SAFETY_RELEVANT"
+      },
+      {
+        "ts": 1787235753.207231,
+        "action": "UPDATE",
+        "accepted": true,
+        "detail": "applied v3: scale: 1.0 -> 0.1; units: 'degC' -> 'degC x10'",
+        "version": 3,
+        "config_hash": "9e7710b291fcb4c9",
+        "classification": "SAFETY_RELEVANT"
+      }
+    ]
+  },
+  "ops": {
+    "per_device": [
+      {
+        "device": "LATHE-04",
+        "total": 443,
+        "good_pct": 94.3566591422122,
+        "stale_pct": 1.1286681715575622,
+        "bad_pct": 4.514672686230249,
+        "state": "HEALTHY"
+      },
+      {
+        "device": "OVEN-02",
+        "total": 482,
+        "good_pct": 98.96265560165975,
+        "stale_pct": 1.037344398340249,
+        "bad_pct": 0.0,
+        "state": "HEALTHY"
+      },
+      {
+        "device": "PRESS-01",
+        "total": 1028,
+        "good_pct": 94.16342412451363,
+        "stale_pct": 5.836575875486381,
+        "bad_pct": 0.0,
+        "state": "HEALTHY"
+      },
+      {
+        "device": "PUMP-03",
+        "total": 610,
+        "good_pct": 10.163934426229508,
+        "stale_pct": 89.8360655737705,
+        "bad_pct": 0.0,
+        "state": "FROZEN"
+      }
+    ]
+  },
+  "wall_seconds": 106.01240160001907
+}

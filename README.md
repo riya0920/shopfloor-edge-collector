@@ -1,6 +1,6 @@
 # SE-1 — Shop-Floor Data Collection System (edge, buffered, secure)
 
-**Status: ~20% slice.** Real Modbus TCP and a framed-ASCII protocol, a
+**Status: ~50% slice.** Real Modbus TCP and a framed-ASCII protocol, a
 config-driven collector with quality flags, a durable store-and-forward buffer
 with a bounded overflow policy, and a chaos soak that verifies zero loss and zero
 duplication. TLS, config signing, containerised resource limits, and the ops
@@ -168,7 +168,28 @@ test fixture had accidentally become the thing under test. The fix is the modern
 `SimData` / `SimDevice` API, where `server.async_setValues(...)` is the runtime
 write path.
 
-## What is NOT built (the other 80%)
+## Built in the second pass — see [docs/EXTENSIONS.md](docs/EXTENSIONS.md)
+
+`python extend.py` — three gaps this README previously named:
+
+- **Throughput within a stated resource envelope**, which is one of the spec's
+  headline metrics and was absent. 16.8 → 54.0 tags/sec as the scan rate tightens,
+  with peak RSS flat at ~69 MB and growth under 1 MB across the run — the
+  measurement that checks the bounded buffer actually bounds something.
+- **The durability/throughput tradeoff, measured — and it refuted my own
+  hypothesis.** I assumed fsync-per-sample was the bottleneck. Relaxing durability
+  all the way to `synchronous=OFF` buys only **~1.07×**, so the bottleneck is the
+  sequential scan loop instead. **Do not trade away a correctness property to fix a
+  performance problem you have not profiled.**
+- **Signed config updates.** A tampered register map is a process-safety issue: a
+  scale factor changed from 1.0 to 0.1 makes a furnace at 720 °C report 72 °C to
+  every consumer, confidently, with nothing erroring. Legitimate updates accepted,
+  tampered ones rejected, and **replay of an older correctly-signed config
+  rejected** — the rollback case a signature check alone accepts.
+- **[docs/RUNBOOKS.md](docs/RUNBOOKS.md)** for the three standard incidents, each
+  leading with the check that discriminates and each with a *what NOT to do*.
+
+## What is NOT built (the other 50%)
 
 1. **The soak is 180 seconds, not 24 hours.** The spec asks for a 24-hour chaos
    soak and this is not one. The failure modes exercised are the same; the ones a

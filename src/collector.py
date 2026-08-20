@@ -137,6 +137,8 @@ class Collector:
         self.overflow_policy = overflow_policy
         self.batch_size = batch_size
         self.online = True
+        self.commit_batch = 1      # samples per commit; >1 trades durability for rate
+        self._since_commit = 0
         self.stats = Stats()
         self.tag_priority: dict[str, int] = {}
 
@@ -158,7 +160,12 @@ class Collector:
             "INSERT INTO buffer (seq, device, tag, value, device_ts, collector_ts, "
             "quality) VALUES (?,?,?,?,?,?,?)",
             (self._seq, device, tag, value, device_ts, now, quality))
-        self.conn.commit()
+        # Commit every N samples. N=1 is fsync-per-sample: the strongest
+        # durability and, measurably, ~20x slower. See docs/EXTENSIONS.md.
+        self._since_commit += 1
+        if self._since_commit >= self.commit_batch:
+            self.conn.commit()
+            self._since_commit = 0
         self.stats.captured += 1
         self.stats.by_quality[quality] = self.stats.by_quality.get(quality, 0) + 1
         self.stats.captured_by_tag[tag] = self.stats.captured_by_tag.get(tag, 0) + 1
@@ -168,6 +175,9 @@ class Collector:
         self.stats.max_buffer_depth = max(self.stats.max_buffer_depth, self.depth())
 
     def depth(self) -> int:
+        if self._since_commit:
+            self.conn.commit()
+            self._since_commit = 0
         return int(self.conn.execute(
             "SELECT COUNT(*) FROM buffer WHERE sent=0").fetchone()[0])
 
