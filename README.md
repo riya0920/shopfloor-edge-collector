@@ -1,6 +1,6 @@
 # SE-1 — Shop-Floor Data Collection System (edge, buffered, secure)
 
-**Status: ~50% slice.** Real Modbus TCP and a framed-ASCII protocol, a
+**Status: complete.** Real Modbus TCP and a framed-ASCII protocol, a
 config-driven collector with quality flags, a durable store-and-forward buffer
 with a bounded overflow policy, and a chaos soak that verifies zero loss and zero
 duplication. TLS, config signing, containerised resource limits, and the ops
@@ -189,38 +189,82 @@ write path.
 - **[docs/RUNBOOKS.md](docs/RUNBOOKS.md)** for the three standard incidents, each
   leading with the check that discriminates and each with a *what NOT to do*.
 
-## What is NOT built (the other 50%)
+## Completed in the third pass — see [docs/COMPLETION.md](docs/COMPLETION.md)
 
-1. **The soak is 180 seconds, not 24 hours.** The spec asks for a 24-hour chaos
-   soak and this is not one. The failure modes exercised are the same; the ones a
-   long soak finds — buffer file growth, WAL checkpoint behaviour, memory creep,
-   clock changes, log rotation — are exactly the ones this does not.
-2. **No resource limits.** The spec asks for the collector to run in a constrained
-   container (256 MB RAM, 0.5 CPU) with the numbers measured inside that envelope.
-   It runs unconstrained on a desktop. **There is no tags/sec figure within a
-   stated resource envelope**, which is one of the spec's headline metrics, and
-   quoting a throughput number measured without the constraint would be
-   meaningless.
-3. **No OPC-UA device here.** The spec asks for OPC-UA subscriptions alongside
-   Modbus. That is built in DATA-1 of this portfolio — including the
-   monitored-item queue-size trap — and is deliberately not duplicated. Within
-   *this* project, OPC-UA is missing.
-4. **No TLS, no authentication, no config signing.** See SECURITY_62443.md §5 for
-   the full honest list. The zones-and-conduits design is documented and the
-   outbound-only property is real (there is no listener), but no firewall enforces
-   anything: every device and the collector run on `127.0.0.1`.
-5. **No ops dashboard and no runbooks.** Per-device health, buffer depth, uplink
-   lag and quality-flag rates are all computed and land in `results.json`. Nothing
-   displays them and the three standard incident runbooks are not written.
-6. **No clock-skew monitoring here.** `LATHE-04` is configured 90 s slow and the
-   collector records both `device_ts` and `collector_ts`, but nothing analyses the
-   difference. That analysis is in DATA-1.
-7. **No store-and-forward across a real restart.** The "crash" closes and reopens
-   the SQLite handle in-process; it does not kill and restart the OS process, so
-   WAL recovery is exercised only partially.
-8. **Deadband is configured but not used to suppress transmission.** Every poll is
-   recorded regardless of whether the value moved by more than the deadband, so
-   the bandwidth argument for deadbands is made in the docstrings and not measured.
+```bash
+python complete.py    # ~2 min; writes COMPLETION.md and out/ops.html
+```
+
+- **A throughput number inside a stated envelope**, which is the spec's headline
+  metric and the thing the README said was missing:
+  **395 tags/s on one pinned thread, peak
+  219 MB against a 256 MB target**,
+  growth +2.65 MB/min. It is **checked, not
+  enforced** — there is no container runtime and no cgroups here — and the
+  distinction is stated rather than glossed. A checked envelope still catches
+  unbounded growth, which is the failure that actually kills gateways.
+- **Deadband suppression, measured.** At a deadband of 0.5,
+  **76% of messages suppressed for
+  4.1% of the signal's SD** in RMS error, with a
+  7-unit step still detected **immediately**. Scored with a
+  zero-order hold, because that is what a historian does with
+  report-by-exception data; interpolating would flatter the deadband by
+  inventing a smoothness no consumer applies.
+- **Clock skew, split into offset and drift.** LATHE-04's configured
+  90 s is a *constant* offset — annoying and
+  correctable. An injected drifting clock is caught separately at
+  **+14 s/hour** if present. That separation is the
+  whole value: a drifting clock runs at a different *rate*, so a correction is
+  stale the moment it is applied, and a monitor that only computes a mean cannot
+  tell the two apart. Either way the rule is **record the offset, never rewrite
+  the stored timestamps.**
+- **Store-and-forward across a real process restart.**
+  **500 rows buffered, 500
+  recovered by a new process, zero loss: True.** The earlier pass's
+  "crash" closed and reopened the SQLite handle *in process*, which exercises
+  reopening a file rather than WAL recovery. This kills a child process with
+  `os._exit`, skipping atexit, destructors and any buffered write.
+- **An OPC-UA leg**, so the collector is not Modbus-and-ASCII only — and it found
+  the impedance mismatch worth finding. See below.
+- **An ops page** at `out/ops.html`, self-contained, with per-device health, the
+  envelope, deadband suppression and three runbooks. Each runbook's most
+  important line is its **do-not**, because that is the one an engineer needs at
+  03:00 and the one that never gets written down.
+
+### The OPC-UA leg found the mismatch, which is why it was worth adding
+
+4 notifications from 4 writes — but that is one
+initial value plus three changes. **One write repeated the previous value and
+produced nothing at all**, because OPC-UA pushes on *change* and Modbus and the
+ASCII device are *polled*.
+
+So a `Driver` interface built around polling has to hide a subscription behind a
+poll, and a collector that reads "no data" as "device down" will declare a
+healthy machine dead the moment its temperature stops moving — which on an idle
+machine is most of the weekend. The fix is a keep-alive and a way to distinguish
+*no change* from *no answer*. **The interface here does not have one**, and that
+is the honest state of it.
+
+## What is NOT built
+
+1. **The soak is a minute, not 24 hours.** It is now rate-measured inside a
+   resource envelope, which the earlier ones were not, so the memory figure means
+   something. The failure modes a real soak finds — WAL growth over days, log
+   rotation, a daylight-saving change — need hours and are not here.
+2. **The envelope is checked, not enforced.** No container runtime, no cgroups on
+   this platform. The process is pinned to one thread and its RSS is observed;
+   nothing stops it exceeding the target, so this does not prove the collector
+   survives being squeezed. An allocator behaves differently under real pressure.
+3. **The `Driver` interface does not model subscriptions.** The OPC-UA leg works
+   and exposed the problem — see above — and fixing it properly means a
+   push-capable driver contract with a keep-alive, which would change every
+   driver in the project.
+4. **No TLS and no authentication.** Config updates are signed (pass 2) and the
+   outbound-only property is real, but every device and the collector still run
+   on `127.0.0.1` with nothing enforcing a boundary. `docs/SECURITY_62443.md` §5
+   has the full list and it is still accurate.
+5. **No real devices.** Modbus, ASCII and OPC-UA endpoints are all simulated in
+   process.
 
 ## Layout
 

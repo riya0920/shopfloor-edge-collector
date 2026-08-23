@@ -1,0 +1,160 @@
+{
+ "quick": true,
+ "envelope": {
+  "peak_rss_mb": 218.587136,
+  "baseline_rss_mb": 213.925888,
+  "growth_mb": 0.8929279999999835,
+  "growth_mb_per_minute": 2.6456172066643,
+  "mem_target_mb": 256.0,
+  "within_memory_envelope": true,
+  "threads_pinned_to": 1,
+  "cpu_target": 0.5,
+  "tags_per_second": 394.65243774155505,
+  "n_samples": 2,
+  "enforcement": "CHECKED, not enforced: no container runtime and no cgroups on this platform, so the limit is observed rather than imposed",
+  "rows_in_historian": 7992,
+  "buffer_depth_at_end": 0
+ },
+ "deadband": {
+  "sweep": [
+   {
+    "deadband": 0.0,
+    "max_gap_s": 60.0,
+    "sent": 4000,
+    "suppressed": 0,
+    "heartbeats": 0,
+    "suppression_rate": 0.0,
+    "n_tags": 1,
+    "n": 4000,
+    "max_abs_error": 0.0,
+    "rms_error": 0.0,
+    "signal_sd": 5.639171105804138,
+    "error_as_pct_of_sd": 0.0
+   },
+   {
+    "deadband": 0.2,
+    "max_gap_s": 60.0,
+    "sent": 2605,
+    "suppressed": 1395,
+    "heartbeats": 0,
+    "suppression_rate": 0.34875,
+    "n_tags": 1,
+    "n": 4000,
+    "max_abs_error": 0.1997426774625808,
+    "rms_error": 0.06679306331181298,
+    "signal_sd": 5.639171105804138,
+    "error_as_pct_of_sd": 1.184448247067126
+   },
+   {
+    "deadband": 0.5,
+    "max_gap_s": 60.0,
+    "sent": 957,
+    "suppressed": 3043,
+    "heartbeats": 0,
+    "suppression_rate": 0.76075,
+    "n_tags": 1,
+    "n": 4000,
+    "max_abs_error": 0.49897463249433116,
+    "rms_error": 0.23088096780334624,
+    "signal_sd": 5.639171105804138,
+    "error_as_pct_of_sd": 4.094235898707012
+   },
+   {
+    "deadband": 1.0,
+    "max_gap_s": 60.0,
+    "sent": 117,
+    "suppressed": 3883,
+    "heartbeats": 13,
+    "suppression_rate": 0.97075,
+    "n_tags": 1,
+    "n": 4000,
+    "max_abs_error": 0.999275076038316,
+    "rms_error": 0.41627210088754074,
+    "signal_sd": 5.639171105804138,
+    "error_as_pct_of_sd": 7.381795889454235
+   },
+   {
+    "deadband": 2.0,
+    "max_gap_s": 60.0,
+    "sent": 36,
+    "suppressed": 3964,
+    "heartbeats": 33,
+    "suppression_rate": 0.991,
+    "n_tags": 1,
+    "n": 4000,
+    "max_abs_error": 1.7327597499313612,
+    "rms_error": 0.468987016406893,
+    "signal_sd": 5.639171105804138,
+    "error_as_pct_of_sd": 8.31659489679585
+   }
+  ],
+  "step_detected_after_samples": 0,
+  "step_size": 7.0
+ },
+ "skew": {
+  "devices": [
+   {
+    "device": "LATHE-04",
+    "n": 400,
+    "mean_offset_s": 90.20160865204645,
+    "sd_offset_s": 0.050373756013186784,
+    "drift_s_per_hour": -0.011710619627737702,
+    "drifting": false,
+    "verdict": "constant offset -- correctable if recorded",
+    "action": "record the offset; never rewrite the stored timestamps"
+   },
+   {
+    "device": "MILL-07",
+    "n": 400,
+    "mean_offset_s": 6.194675348346582,
+    "sd_offset_s": 2.311548891380097,
+    "drift_s_per_hour": 14.410320563744408,
+    "drifting": true,
+    "verdict": "DRIFT -- the device clock runs at a different rate; a correction is stale as soon as it is applied",
+    "action": "record the offset; never rewrite the stored timestamps"
+   },
+   {
+    "device": "PRESS-01",
+    "n": 400,
+    "mean_offset_s": 0.19739850316598911,
+    "sd_offset_s": 0.04816587246362572,
+    "drift_s_per_hour": 0.010188628236575651,
+    "drifting": false,
+    "verdict": "constant offset -- correctable if recorded",
+    "action": "record the offset; never rewrite the stored timestamps"
+   }
+  ],
+  "note": "MILL-07's drift is injected here; the fleet config has a constant offset on LATHE-04 only"
+ },
+ "restart": {
+  "buffered_before_kill": 500,
+  "recovered_after_restart": 500,
+  "drained": 500,
+  "rows_in_historian": 500,
+  "zero_loss": true,
+  "write_rc": 0,
+  "read_rc": 0,
+  "method": "child process killed with os._exit, which skips atexit, destructors and any buffered write -- the closest available analogue of a power cut",
+  "stderr": null
+ },
+ "opcua": {
+  "available": true,
+  "endpoint": "opc.tcp://127.0.0.1:14841/se1/",
+  "writes": 4,
+  "notifications": 4,
+  "values": [
+   42.0,
+   43.0,
+   44.5,
+   47.0
+  ],
+  "source_timestamps_present": true,
+  "why_it_matters": "Modbus and the ASCII device are POLLED; OPC-UA PUSHES on change. A Driver interface that assumes polling has to hide a subscription behind a poll, and an unchanged value produces no notification at all -- which a poller reads as a dead device."
+ },
+ "ops_page": {
+  "path": "C:\\Users\\riyas\\Desktop\\manufacturing-hm\\se1-shopfloor-collector\\out\\ops.html",
+  "bytes": 4832,
+  "self_contained": true
+ },
+ "wall_seconds": 44.52859549992718
+}
