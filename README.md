@@ -245,26 +245,86 @@ machine is most of the weekend. The fix is a keep-alive and a way to distinguish
 *no change* from *no answer*. **The interface here does not have one**, and that
 is the honest state of it.
 
+## Built in the fourth pass — see [docs/SUBSCRIPTIONS_AND_TLS.md](docs/SUBSCRIPTIONS_AND_TLS.md)
+
+```bash
+python run_pass4.py    # ~5 s
+```
+
+The two items the list below named, both of which were named with the right
+diagnosis and neither of which had been acted on.
+
+- **A driver contract that models subscriptions.** One fetch now answers two
+  questions the poll shape could only answer together: *what the device said*
+  (readings, each with its own quality) and *whether the device is there*
+  (liveness, derived from **contact** and never from whether a value moved). The
+  subscription carries a keep-alive — an empty publish when there is no news —
+  because silence past a deadline is the only evidence of death either transport
+  can offer.
+- **And the measurement is the point.** A healthy device that simply has nothing
+  to say, sampled 44 times: the old contract calls it DOWN on
+  **43 of 44 ticks**
+  (98%), the new one on
+  **0**. Kill it for real and the new contract
+  notices in 1.58 s against its own 2.0 s
+  deadline.
+- **Liveness is three-valued because the useful state is the middle one.**
+  `FRESH` / `KEEPALIVE` / `SILENT`. Collapsing `KEEPALIVE` into `FRESH` throws
+  away how old the newest value is; collapsing it into `SILENT` is the original
+  bug. `PolledAdapter` wraps every existing driver unchanged and **never**
+  reports `KEEPALIVE`, because a polled transport gives no liveness signal and
+  inventing one would be the same lie in the other direction.
+- **Mutual TLS on the uplink.** Loopback is not a boundary, it is the absence of
+  one that happens to be hard to reach. Ordinary TLS answers *is this the server
+  I meant to talk to*; on a plant network the question that matters more is *is
+  this gateway one of ours*. One CA, a server certificate and three client
+  certificates are minted in-process per run — no checked-in key material, which
+  a test asserts, because a repository with a private key in its history has one
+  forever.
+- **The refusals are the result, not the acceptance.** Six cases: a valid
+  gateway connects and is identified as `gateway-01` **from its
+  certificate rather than its payload**; no client certificate, a client signed
+  by a different CA, an expired certificate, a hostname mismatch and a client
+  that does not trust our CA are all refused. TLS 1.3, with 1.2 and below
+  refused rather than deprecated.
+
+### The control that makes the matrix mean anything
+
+A server with verification switched off passes the happy-path test too. Run the
+same clients against a `CERT_NONE` server and it accepts a client with **no
+certificate** (`True`) and one signed by a **different CA**
+(`True`), with peer common names `[None, None]`. Both
+connections succeed and neither has an identity — which is exactly what a test
+that only checks the happy path cannot distinguish from the real thing.
+
 ## What is NOT built
 
-1. **The soak is a minute, not 24 hours.** It is now rate-measured inside a
-   resource envelope, which the earlier ones were not, so the memory figure means
-   something. The failure modes a real soak finds — WAL growth over days, log
-   rotation, a daylight-saving change — need hours and are not here.
+1. **The soak is a minute, not 24 hours.** It is rate-measured inside a resource
+   envelope, so the memory figure means something. The failure modes a real soak
+   finds — WAL growth over days, log rotation, a daylight-saving change — need
+   hours and are not here.
 2. **The envelope is checked, not enforced.** No container runtime, no cgroups on
    this platform. The process is pinned to one thread and its RSS is observed;
    nothing stops it exceeding the target, so this does not prove the collector
    survives being squeezed. An allocator behaves differently under real pressure.
-3. **The `Driver` interface does not model subscriptions.** The OPC-UA leg works
-   and exposed the problem — see above — and fixing it properly means a
-   push-capable driver contract with a keep-alive, which would change every
-   driver in the project.
-4. **No TLS and no authentication.** Config updates are signed (pass 2) and the
-   outbound-only property is real, but every device and the collector still run
-   on `127.0.0.1` with nothing enforcing a boundary. `docs/SECURITY_62443.md` §5
-   has the full list and it is still accurate.
-5. **No real devices.** Modbus, ASCII and OPC-UA endpoints are all simulated in
-   process.
+3. **No real devices.** Modbus, ASCII and OPC-UA endpoints are all simulated in
+   process, and the change-driven device in `subscribe.py` is a stand-in that is
+   faithful about exactly one behaviour: writing the same value publishes
+   nothing. A real server has session timeouts, republish requests and
+   revised-publishing-interval negotiation, and none of that is modelled.
+4. **The new contract is not wired into the collector's main loop.** It is a
+   contract, an adapter that carries every existing driver into it, and a
+   measurement of what it fixes. Migrating `collector.py` onto it would change
+   the health path and the buffer's back-pressure logic, which is a larger
+   change than the one being justified here.
+5. **There is no CA infrastructure.** No revocation, no OCSP, no renewal, no
+   HSM, and the CA private key lives in the same process as everything it signs.
+   IEC 62443 SL-2 wants a managed identity lifecycle; this shows the transport
+   can carry and enforce identities, not that anybody is managing them.
+6. **The devices themselves are still unauthenticated.** mTLS protects the
+   collector's uplink. Modbus and the ASCII protocol have no security model at
+   all — that is a property of those protocols, and the real-world answer is
+   network segmentation rather than anything a driver can do.
 
 ## Layout
 
@@ -274,6 +334,9 @@ src/devices.py    device simulators: Modbus register maps, the ASCII frame forma
 src/drivers.py    protocol drivers behind one interface; backoff with jitter
 src/collector.py  config-driven acquisition, quality classification, WAL buffer,
                   bounded overflow policy, at-least-once uplink, idempotent historian
+src/subscribe.py  push-capable driver contract: readings and liveness, separately
+src/mtls.py       in-process PKI, mutual-TLS uplink, and the refusal matrix
 run_soak.py       the chaos soak; writes docs/RESULTS.md
+run_pass4.py      the subscription contract and mTLS; writes the pass-4 doc
 docs/SECURITY_62443.md   zones and conduits, and what is not implemented
 ```

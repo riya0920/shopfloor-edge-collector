@@ -1,0 +1,139 @@
+{
+  "writes": {
+    "initial_publish_readings": 1,
+    "writes": [
+      {
+        "wrote": 61.0,
+        "device_published": true,
+        "n_readings": 1,
+        "liveness": "FRESH",
+        "old_contract": "UP",
+        "new_contract": "UP"
+      },
+      {
+        "wrote": 62.0,
+        "device_published": true,
+        "n_readings": 1,
+        "liveness": "FRESH",
+        "old_contract": "UP",
+        "new_contract": "UP"
+      },
+      {
+        "wrote": 62.0,
+        "device_published": false,
+        "n_readings": 0,
+        "liveness": "KEEPALIVE",
+        "old_contract": "DOWN",
+        "new_contract": "UP"
+      },
+      {
+        "wrote": 63.0,
+        "device_published": true,
+        "n_readings": 1,
+        "liveness": "FRESH",
+        "old_contract": "UP",
+        "new_contract": "UP"
+      }
+    ],
+    "n_writes": 4,
+    "n_notifications": 3,
+    "repeat_wrote_nothing": true,
+    "old_contract_called_it_down": 1,
+    "new_contract_called_it_down": 0
+  },
+  "compare": {
+    "ticks": 44,
+    "steady_s": 2.5,
+    "tick_s": 0.05,
+    "keepalive_s": 0.5,
+    "missed_allowed": 3,
+    "deadline_s": 2.0,
+    "old_contract_false_down": 43,
+    "old_contract_false_down_frac": 0.9772727272727273,
+    "new_contract_false_down": 0,
+    "keepalives_seen": 4,
+    "notifications_seen": 1,
+    "detection_s": 1.5827288999998927,
+    "detection_within_deadline": true
+  },
+  "matrix": {
+    "rows": [
+      {
+        "case": "valid gateway, correct hostname",
+        "expected": "accept",
+        "accepted": true,
+        "as_expected": true,
+        "kind": null,
+        "detail": "",
+        "tls_version": "TLSv1.3",
+        "cipher": "TLS_AES_256_GCM_SHA384"
+      },
+      {
+        "case": "no client certificate",
+        "expected": "refuse",
+        "accepted": false,
+        "as_expected": true,
+        "kind": "Transport",
+        "detail": "[WinError 10054] An existing connection was forcibly closed by the remote host",
+        "tls_version": null,
+        "cipher": null
+      },
+      {
+        "case": "client signed by a different CA",
+        "expected": "refuse",
+        "accepted": false,
+        "as_expected": true,
+        "kind": "SSL",
+        "detail": "[SSL: TLSV1_ALERT_UNKNOWN_CA] tlsv1 alert unknown ca (_ssl.c:2710)",
+        "tls_version": null,
+        "cipher": null
+      },
+      {
+        "case": "expired client certificate",
+        "expected": "refuse",
+        "accepted": false,
+        "as_expected": true,
+        "kind": "SSL",
+        "detail": "[SSL: SSLV3_ALERT_CERTIFICATE_EXPIRED] sslv3 alert certificate expired (_ssl.c:2710)",
+        "tls_version": null,
+        "cipher": null
+      },
+      {
+        "case": "wrong server hostname",
+        "expected": "refuse",
+        "accepted": false,
+        "as_expected": true,
+        "kind": "CertificateVerification",
+        "detail": "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid for 'not-the-collector'. (",
+        "tls_version": null,
+        "cipher": null
+      },
+      {
+        "case": "client does not trust our CA",
+        "expected": "refuse",
+        "accepted": false,
+        "as_expected": true,
+        "kind": "CertificateVerification",
+        "detail": "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain (_ssl.c:1081)",
+        "tls_version": null,
+        "cipher": null
+      }
+    ],
+    "all_as_expected": true,
+    "n_refused": 5,
+    "accepted_peer_cns": [
+      "gateway-01"
+    ],
+    "server_rejections": 5
+  },
+  "control": {
+    "accepts_anonymous": true,
+    "accepts_rogue": true,
+    "peer_cns": [
+      null,
+      null
+    ],
+    "why": "a CERT_NONE server accepts the valid client too, so a test that only checks the happy path cannot tell the two servers apart"
+  },
+  "elapsed_s": 4.519443035125732
+}
