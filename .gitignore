@@ -11,3 +11,5 @@ out/*.db
 out/*.db-wal
 out/*.db-shm
 out/_restart_child.py
+
+out/rerun*.log

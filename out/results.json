@@ -1,39 +1,39 @@
 {
   "seconds": 180.0,
-  "captured": 2790,
-  "dropped_by_policy": 227,
-  "expected_in_historian": 2563,
-  "in_historian": 2563,
+  "captured": 3003,
+  "dropped_by_policy": 217,
+  "expected_in_historian": 2786,
+  "in_historian": 2786,
   "loss": 0,
-  "replayed_rows": 2563,
-  "in_historian_after_replay": 2563,
+  "replayed_rows": 2786,
+  "in_historian_after_replay": 2786,
   "duplicates_created_by_replay": 0,
-  "duplicates_rejected": 2563,
+  "duplicates_rejected": 2786,
   "max_buffer_depth": 600,
   "buffer_bound": 600,
   "overflow_policy": "priority",
   "quality_counts": {
     "BAD": 20,
-    "GOOD": 1925,
-    "STALE": 618
+    "GOOD": 2085,
+    "STALE": 681
   },
   "per_device_quality": {
     "LATHE-04": {
-      "GOOD": 421,
+      "GOOD": 468,
       "BAD": 20,
-      "STALE": 9
+      "STALE": 2
     },
     "OVEN-02": {
-      "GOOD": 570,
-      "STALE": 6
+      "GOOD": 608,
+      "STALE": 14
     },
     "PUMP-03": {
-      "GOOD": 62,
-      "STALE": 652
+      "GOOD": 57,
+      "STALE": 715
     },
     "PRESS-01": {
-      "GOOD": 990,
-      "STALE": 60
+      "GOOD": 1064,
+      "STALE": 55
     }
   },
   "drivers": {
@@ -60,23 +60,23 @@
   },
   "chaos": [
     {
-      "t": 36.111289501190186,
+      "t": 36.16407537460327,
       "event": "uplink DOWN"
     },
     {
-      "t": 63.11193561553955,
-      "event": "uplink UP, drained 479"
+      "t": 63.18094992637634,
+      "event": "uplink UP, drained 487"
     },
     {
-      "t": 90.23865795135498,
-      "event": "collector process KILLED and restarted (9 unsent rows in the WAL buffer)"
+      "t": 90.52705979347229,
+      "event": "collector process KILLED and restarted (2 unsent rows in the WAL buffer)"
     },
     {
-      "t": 108.30250406265259,
+      "t": 108.53329420089722,
       "event": "uplink DOWN (long)"
     },
     {
-      "t": 158.83202695846558,
+      "t": 158.94365811347961,
       "event": "uplink UP, drained 600"
     }
   ],
@@ -89,30 +89,30 @@
     "flow_lpm": 4
   },
   "captured_by_tag": {
-    "temperature_c": 863,
-    "vibration_mms": 582,
-    "flow_lpm": 645,
-    "pressure_bar": 350,
-    "part_count": 350
+    "temperature_c": 929,
+    "vibration_mms": 631,
+    "flow_lpm": 697,
+    "pressure_bar": 373,
+    "part_count": 373
   },
   "dropped_by_tag": {
-    "flow_lpm": 189,
-    "temperature_c": 27,
-    "pressure_bar": 11
+    "flow_lpm": 191,
+    "temperature_c": 19,
+    "pressure_bar": 7
   },
   "word_order_probe": {
     "device": "OVEN-02",
     "registers": [
-      20355,
+      570,
       17033
     ],
     "correct (word_swap=True)": {
-      "value": 68.6552963256836,
+      "value": 68.50434875488281,
       "quality": "GOOD"
     },
     "wrong (word_swap=False)": {
-      "value": 4404351488.0,
-      "quality": "UNCERTAIN"
+      "value": 1.3684216481703368e-37,
+      "quality": "GOOD"
     }
   }
 }

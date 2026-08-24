@@ -27,6 +27,8 @@ import struct
 import time
 from dataclasses import dataclass, field
 
+import zlib
+
 import numpy as np
 
 
@@ -91,7 +93,11 @@ class ProcessModel:
 
     def __init__(self, name: str, seed: int = 7):
         self.name = name
-        self.rng = np.random.default_rng(seed + abs(hash(name)) % 9999)
+        # crc32, NOT hash(): Python salts str hashing per process (PEP 456), so
+        # hash() differs on every interpreter start and this device would
+        # generate different data on every run -- silently breaking the
+        # reproducibility every report in this project claims.
+        self.rng = np.random.default_rng(seed + zlib.crc32(name.encode()) % 9999)
         self.t0 = time.time()
 
     def values(self, t: float) -> dict[str, float]:

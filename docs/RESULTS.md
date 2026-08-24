@@ -6,14 +6,14 @@
 
 | | |
 |---|---|
-| samples captured to the durable buffer | 2,790 |
-| dropped by the bounded-buffer policy | 227 |
-| **expected in the historian** | **2,563** |
-| **actually in the historian** | **2,563** |
+| samples captured to the durable buffer | 3,003 |
+| dropped by the bounded-buffer policy | 217 |
+| **expected in the historian** | **2,786** |
+| **actually in the historian** | **2,786** |
 | **loss** | **0** |
-| rows re-sent by the deliberate replay drill | 2,563 |
+| rows re-sent by the deliberate replay drill | 2,786 |
 | **duplicates created by that replay** | **0** |
-| duplicates rejected by the primary key | 2,563 |
+| duplicates rejected by the primary key | 2,786 |
 | peak buffer depth (bound 600) | 600 |
 
 **Loss 0, duplication 0.**
@@ -27,27 +27,27 @@ Uniqueness lives at the DESTINATION: `PRIMARY KEY (collector_id, seq)` with `INS
 | t (s) | event |
 |---|---|
 | 36 | uplink DOWN |
-| 63 | uplink UP, drained 479 |
-| 90 | collector process KILLED and restarted (9 unsent rows in the WAL buffer) |
-| 108 | uplink DOWN (long) |
+| 63 | uplink UP, drained 487 |
+| 91 | collector process KILLED and restarted (2 unsent rows in the WAL buffer) |
+| 109 | uplink DOWN (long) |
 | 159 | uplink UP, drained 600 |
 
 ## 2. Quality flags
 
 | quality | samples |
 |---|---|
-| GOOD | 1,925 |
-| STALE | 618 |
+| GOOD | 2,085 |
+| STALE | 681 |
 | BAD | 20 |
 
 | device | BAD | GOOD | STALE |
 |---|---|---|---|
-| LATHE-04 | 20 | 421 | 9 |
-| OVEN-02 | 0 | 570 | 6 |
-| PRESS-01 | 0 | 990 | 60 |
-| PUMP-03 | 0 | 62 | 652 |
+| LATHE-04 | 20 | 468 | 2 |
+| OVEN-02 | 0 | 608 | 14 |
+| PRESS-01 | 0 | 1064 | 55 |
+| PUMP-03 | 0 | 57 | 715 |
 
-**The frozen device.** `PUMP-03` freezes 12 seconds into the run and then answers every poll, on time, forever, with entirely plausible values. No connection drops, no protocol error, nothing anywhere reports a fault — and it accumulates 652 STALE samples, because the collector tests for *change* as well as for *response*.
+**The frozen device.** `PUMP-03` freezes 12 seconds into the run and then answers every poll, on time, forever, with entirely plausible values. No connection drops, no protocol error, nothing anywhere reports a fault — and it accumulates 715 STALE samples, because the collector tests for *change* as well as for *response*.
 
 Neither test works alone, and that is the design point. A change-only test flags a tank sitting at setpoint, which is the healthiest signal on the plant. A heartbeat-only test sees a frozen device answering perfectly and calls it healthy. It is the combination — *we are being answered, and the answer has not moved for N scans* — that catches this, which is why the stale window is a per-tag config value and not a constant: a setpoint that legitimately never moves needs a far longer window than a vibration reading.
 
@@ -70,18 +70,18 @@ What it looks like before the config is fixed: a temperature of roughly 1.7e19. 
 
 ### The word-order probe, measured
 
-The same two registers read from `OVEN-02` (`[20355, 17033]`), decoded under both configurations:
+The same two registers read from `OVEN-02` (`[570, 17033]`), decoded under both configurations:
 
 | register map says | decoded value | quality flag |
 |---|---|---|
-| correct (word_swap=True) | 68.6553 °C | **GOOD** |
-| wrong (word_swap=False) | 4.40435e+09 °C | **UNCERTAIN** |
+| correct (word_swap=True) | 68.5043 °C | **GOOD** |
+| wrong (word_swap=False) | 1.36842e-37 °C | **GOOD** |
 
 That is the argument for plausibility limits as first-class config. The wrong word order does not raise an error, does not drop a connection and does not fail a checksum — it produces a *number*. The only thing between it and a historian full of confident nonsense is a per-tag range check at ingest.
 
 ## 4. The bounded buffer
 
-Bound 600 rows; peak depth 600; dropped 227; policy **priority**.
+Bound 600 rows; peak depth 600; dropped 217; policy **priority**.
 
 Tag priorities: `part_count`=10, `state_code`=9, `vibration_mms`=6, `temperature_c`=5, `pressure_bar`=5, `flow_lpm`=4
 
@@ -92,11 +92,11 @@ An unbounded buffer is a lie about the hardware. A gateway with 256 MB of RAM do
 
 | tag | priority | captured | dropped | % dropped |
 |---|---|---|---|---|
-| flow_lpm | 4 | 645 | 189 | 29.3% |
-| pressure_bar | 5 | 350 | 11 | 3.1% |
-| temperature_c | 5 | 863 | 27 | 3.1% |
-| vibration_mms | 6 | 582 | 0 | 0.0% |
-| part_count | 10 | 350 | 0 | 0.0% |
+| flow_lpm | 4 | 697 | 191 | 27.4% |
+| pressure_bar | 5 | 373 | 7 | 1.9% |
+| temperature_c | 5 | 929 | 19 | 2.0% |
+| vibration_mms | 6 | 631 | 0 | 0.0% |
+| part_count | 10 | 373 | 0 | 0.0% |
 
 The policy is doing what it says: `flow_lpm` (priority 4) absorbs the loss and `part_count` (priority 10) is protected. Without the per-tag counters this table would not exist and the claim would be an assertion about code rather than a measurement of behaviour.
 
