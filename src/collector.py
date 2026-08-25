@@ -23,8 +23,9 @@ improvement.
 
     GOOD       fresh reading, passed plausibility
     STALE      device answered but the value has not changed within its expected
-               update window -- see `_stale_check` for why this needs BOTH a
-               change test and a heartbeat
+               update window -- see `classify` for why this needs BOTH a change
+               test and a heartbeat, and why a driver that reports a confirmed
+               keep-alive suppresses it
     BAD        protocol error, checksum failure, or connection down
     UNCERTAIN  value outside its configured plausible range: we received something,
                we do not believe it. This is the flag that catches a word-swapped
@@ -150,6 +151,11 @@ class Collector:
         row = self.conn.execute("SELECT MAX(seq) FROM buffer").fetchone()
         self._seq = int(row[0]) if row and row[0] is not None else 0
         self._last: dict[tuple[str, str], tuple[float, float]] = {}
+        # Per-device liveness, from the driver contract. Separate from tag
+        # values on purpose: whether a device is THERE and what it last SAID are
+        # different questions, and the whole point of the subscription contract
+        # is that a poll cannot answer them together.
+        self._liveness: dict[str, dict] = {}
 
     # -- capture ----------------------------------------------------------
     def record(self, device: str, tag: str, value: float | None, quality: str,
@@ -223,8 +229,29 @@ class Collector:
         self.stats.dropped_overflow += len(victims)
 
     # -- quality ----------------------------------------------------------
+    def observe_liveness(self, device: str, liveness: str, age_s: float = 0.0,
+                         ts: float | None = None) -> dict:
+        """Record what the driver said about the DEVICE, not about a tag.
+
+        `liveness` is FRESH / KEEPALIVE / SILENT from `subscribe.py`. Only SILENT
+        means down: a device that checked in on time with nothing new to say is
+        healthy, and the poll-shaped path had no way to express that.
+        """
+        rec = {"liveness": liveness, "age_s": float(age_s),
+               "at": float(ts if ts is not None else time.time())}
+        self._liveness[device] = rec
+        return rec
+
+    def device_health(self, device: str) -> str:
+        """UP unless the driver said SILENT. Unknown devices are UP, because a
+        device nobody has asked about is not a device that failed."""
+        rec = self._liveness.get(device)
+        if rec is None:
+            return "UP"
+        return "DOWN" if rec["liveness"] == "SILENT" else "UP"
+
     def classify(self, device: str, tag, value: float | None,
-                 stale_window_s: float) -> str:
+                 stale_window_s: float, liveness: str | None = None) -> str:
         """Assign a quality flag. The stale test is the interesting one.
 
         STALE detection needs BOTH a change test and a heartbeat, and neither
@@ -261,6 +288,15 @@ class Collector:
             self._last[key] = (value, now)
             return "GOOD"
         if now - last_change > stale_window_s:
+            # STALE means "we are being answered and the answer has not moved".
+            # For a device that publishes ON CHANGE, not moving is the normal
+            # state and there is nothing to answer with -- so a confirmed
+            # keep-alive means the value is current, not stale. Without this the
+            # classifier calls a healthy idle subscribed device STALE for the
+            # same reason the old poll contract called it DOWN: it is reading
+            # "no change" as "no answer".
+            if liveness == "KEEPALIVE":
+                return "GOOD"
             return "STALE"
         return "GOOD"
 

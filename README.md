@@ -297,6 +297,43 @@ certificate** (`True`) and one signed by a **different CA**
 connections succeed and neither has an identity — which is exactly what a test
 that only checks the happy path cannot distinguish from the real thing.
 
+## Also in the fifth pass — the contract wired into an acquisition loop
+
+Pass 4 built the driver contract and measured it in isolation; the not-built list
+recorded that it was not wired in, and that doing so *would change the health path
+and the buffer's back-pressure logic*. It is wired now, and the change lands in
+exactly two places:
+
+- **`Collector.classify` learned about liveness.** STALE means *we are being
+  answered and the answer has not moved*. For a device that publishes on change,
+  not moving is the normal state — so a confirmed keep-alive suppresses STALE.
+  Without that the classifier calls a healthy idle subscribed device STALE for
+  the same reason the old contract called it DOWN: it reads "no change" as "no
+  answer".
+- **`Collector.observe_liveness` / `device_health`** track whether a device is
+  *there*, separately from what it last *said*. Only SILENT is DOWN.
+
+`subscribe.run_device` is `run_soak.poll_device` with three changes and no
+others: it calls `fetch()`, it reports liveness every tick whether or not a
+reading arrived, and it marks tags BAD on SILENT rather than on "no data this
+tick". The old loop had that last one as "connection failed", which is the same
+thing for a polled device and a different thing entirely for a subscribed one.
+
+Same idle-but-healthy device, 40 ticks, both loops:
+
+| | old loop | new loop |
+|---|---:|---:|
+| rows written to the historian | 40 | **1** |
+| of those, BAD | 39 | **0** |
+| device health | **DOWN** | **UP** |
+
+**98% of the old loop's ticks write a BAD row for
+a device that is working.** And the row count is the second finding: the old loop
+writes one row per tag per tick whatever happens, the new one writes only when
+something changed — 40 rows against 1 for the
+same period. Report-by-exception only reports by exception if the loop can tell
+the difference between nothing-to-say and nothing-there.
+
 ## What is NOT built
 
 1. **The soak is a minute, not 24 hours.** It is rate-measured inside a resource
@@ -312,11 +349,11 @@ that only checks the happy path cannot distinguish from the real thing.
    faithful about exactly one behaviour: writing the same value publishes
    nothing. A real server has session timeouts, republish requests and
    revised-publishing-interval negotiation, and none of that is modelled.
-4. **The new contract is not wired into the collector's main loop.** It is a
-   contract, an adapter that carries every existing driver into it, and a
-   measurement of what it fixes. Migrating `collector.py` onto it would change
-   the health path and the buffer's back-pressure logic, which is a larger
-   change than the one being justified here.
+4. **`run_soak.py` still uses the old poll loop.** The contract is wired into
+   `Collector` and `subscribe.run_device` runs on it, but the chaos soak — which
+   is where the 0-loss/0-dup and throughput numbers come from — has not been
+   migrated. Those numbers therefore describe the polled path, and re-running
+   them through the new loop is the remaining work.
 5. **There is no CA infrastructure.** No revocation, no OCSP, no renewal, no
    HSM, and the CA private key lives in the same process as everything it signs.
    IEC 62443 SL-2 wants a managed identity lifecycle; this shows the transport

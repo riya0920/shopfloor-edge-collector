@@ -384,3 +384,160 @@ async def write_repeat_experiment(n_writes: int = 4) -> dict:
                 1 for p in per_write if p["old_contract"] == "DOWN"),
             "new_contract_called_it_down": sum(
                 1 for p in per_write if p["new_contract"] == "DOWN")}
+
+
+# ---------------------------------------------------------------------------
+# the acquisition loop, on the contract
+# ---------------------------------------------------------------------------
+
+async def run_device(driver, collector, profile, stop, *, stale_window_s: float,
+                     scan_s: float, clock_offset_s: float = 0.0,
+                     max_ticks: int | None = None) -> dict:
+    """One device's acquisition loop, written against `fetch()` rather than `poll()`.
+
+    This is the loop `run_soak.poll_device` is, with three changes and no others:
+
+      1. it calls `fetch()`, so it gets liveness alongside readings
+      2. it tells the collector about liveness EVERY tick, whether or not any
+         reading arrived -- which is the only way a subscribed device that has
+         nothing to say can be distinguished from one that has stopped
+      3. it marks tags BAD on SILENT, not on "no data this tick"
+
+    The old loop had (3) as "connection failed", which is the same thing for a
+    polled device and a different thing entirely for a subscribed one.
+    """
+    tags = {t.name: t for t in profile.tags}
+    ok = await driver.subscribe()
+    if not ok:
+        for t in profile.tags:
+            collector.record(profile.name, t.name, None, "BAD", None)
+        collector.observe_liveness(profile.name, SILENT)
+        return {"subscribed": False, "ticks": 0}
+
+    ticks = fresh = keepalive = silent = written = 0
+    try:
+        while not stop.is_set():
+            f = await driver.fetch()
+            ticks += 1
+            collector.observe_liveness(profile.name, f.liveness, f.last_contact_s)
+
+            if f.liveness == FRESH:
+                fresh += 1
+            elif f.liveness == KEEPALIVE:
+                keepalive += 1
+            else:
+                silent += 1
+                # Only now is the device down, and only now do its tags go BAD.
+                for t in profile.tags:
+                    collector.record(profile.name, t.name, None, "BAD", None)
+                    written += 1
+
+            device_ts = time.time() + clock_offset_s
+            for r in f.readings:
+                tag = tags.get(r.tag)
+                if tag is None:
+                    continue
+                q = collector.classify(profile.name, tag, r.value,
+                                       stale_window_s, liveness=f.liveness)
+                collector.record(profile.name, r.tag, r.value, q, device_ts)
+                written += 1
+
+            if max_ticks is not None and ticks >= max_ticks:
+                break
+            await asyncio.sleep(scan_s)
+    except asyncio.CancelledError:
+        pass
+    return {"subscribed": True, "ticks": ticks, "fresh": fresh,
+            "keepalive": keepalive, "silent": silent, "rows_written": written}
+
+
+async def compare_loops(steady_s: float = 2.0, tick_s: float = 0.05,
+                        keepalive_s: float = 0.4, deadband: float = 0.0) -> dict:
+    """The old loop and the new one, on the same idle-but-healthy device.
+
+    The device publishes on change and has nothing new to say, which is what an
+    idle machine looks like. The question is what each loop writes to the
+    historian and what it says about the device's health.
+    """
+    import types
+
+    class _Tag:
+        def __init__(self, name):
+            self.name = name
+            self.deadband = 0.0
+            self.min_plausible = None
+            self.max_plausible = None
+
+    profile = types.SimpleNamespace(name="MC-IDLE", tags=[_Tag("temp_C")])
+
+    class _Sink:
+        """Stands in for the Collector, recording what each loop would write."""
+
+        def __init__(self):
+            self.rows = []
+            self._c = None
+
+        def record(self, device, tag, value, quality, ts):
+            self.rows.append({"device": device, "tag": tag, "value": value,
+                              "quality": quality})
+
+        def classify(self, device, tag, value, stale_window_s, liveness=None):
+            return self._c.classify(device, tag, value, stale_window_s,
+                                    liveness=liveness)
+
+        def observe_liveness(self, device, liveness, age_s=0.0, ts=None):
+            return self._c.observe_liveness(device, liveness, age_s, ts)
+
+        def device_health(self, device):
+            return self._c.device_health(device)
+
+    # --- the new loop
+    from collector import Collector, Historian
+    import tempfile
+    import pathlib as _p
+
+    tmp = _p.Path(tempfile.mkdtemp())
+    hist = Historian(tmp / "h.db")
+    real = Collector("c1", tmp / "b.db", hist)
+    sink = _Sink()
+    sink._c = real
+
+    dev = ChangeDrivenDevice({"temp_C": 60.0}, keepalive_s=keepalive_s,
+                            deadband=deadband)
+    drv = ChangeDrivenDriver(dev, keepalive_s=keepalive_s, missed_allowed=3)
+    stop = asyncio.Event()
+    n_ticks = max(int(steady_s / tick_s), 4)
+    new = await run_device(drv, sink, profile, stop,
+                           stale_window_s=keepalive_s * 2, scan_s=tick_s,
+                           max_ticks=n_ticks)
+    new_bad = sum(1 for r in sink.rows if r["quality"] == "BAD")
+    new_stale = sum(1 for r in sink.rows if r["quality"] == "STALE")
+    new_health = sink.device_health("MC-IDLE")
+
+    # --- the old loop, reproduced: poll(), and "no data" means the tags go BAD
+    dev2 = ChangeDrivenDevice({"temp_C": 60.0}, keepalive_s=keepalive_s,
+                              deadband=deadband)
+    old_rows = []
+    old_down = 0
+    for _ in range(n_ticks):
+        readings, _contact = dev2.drain(time.monotonic())
+        vals = {r.tag: r.value for r in readings}
+        if not vals:
+            # what the poll-shaped loop does with an empty answer
+            old_down += 1
+            old_rows.append({"tag": "temp_C", "quality": "BAD"})
+        else:
+            old_rows.append({"tag": "temp_C", "quality": "GOOD"})
+        await asyncio.sleep(tick_s)
+
+    real.close()
+    return {
+        "ticks": n_ticks,
+        "new": {**new, "bad_rows": new_bad, "stale_rows": new_stale,
+                "device_health": new_health,
+                "rows": len(sink.rows)},
+        "old": {"bad_rows": old_down, "rows": len(old_rows),
+                "device_health": "DOWN" if old_down else "UP"},
+        "old_false_bad_frac": old_down / max(n_ticks, 1),
+        "new_false_bad_frac": new_bad / max(n_ticks, 1),
+    }

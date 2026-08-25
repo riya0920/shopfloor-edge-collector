@@ -1,0 +1,22 @@
+{
+  "ticks": 40,
+  "new": {
+    "subscribed": true,
+    "ticks": 40,
+    "fresh": 1,
+    "keepalive": 39,
+    "silent": 0,
+    "rows_written": 1,
+    "bad_rows": 0,
+    "stale_rows": 0,
+    "device_health": "UP",
+    "rows": 1
+  },
+  "old": {
+    "bad_rows": 39,
+    "rows": 40,
+    "device_health": "DOWN"
+  },
+  "old_false_bad_frac": 0.975,
+  "new_false_bad_frac": 0.0
+}
